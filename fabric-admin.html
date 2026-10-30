@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>Fabric Closet Admin</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;border-radius:0;box-shadow:none;margin:0}
+html,body{background:#fff;color:#000;color-scheme:light}
+body{font:15px/1.45 'IBM Plex Mono',ui-monospace,Menlo,monospace;text-transform:uppercase}
+#app{max-width:520px;margin:0 auto;padding:24px 20px 80px}
+h1{font-size:17px;font-weight:500;margin-bottom:6px}h2{font-size:15px;font-weight:500;margin:36px 0 10px;border-bottom:1px solid #000}
+label{display:block;margin-top:12px;font-size:12px;color:#555}
+input:not([type=file]),select,textarea{width:100%;height:50px;border:1px solid #000;background:#fff;color:#000;font:inherit;padding:0 14px;margin-top:6px;outline:0;text-transform:none}
+textarea{height:110px;padding:12px}
+.btn,.sm{border:0;background:#000;color:#fff;font:inherit;cursor:pointer;text-transform:uppercase}
+.btn{width:100%;height:54px;margin-top:18px}.btn:disabled{background:#808080}
+.sm{padding:8px 12px;margin:8px 8px 0 0}.sm.o{background:#fff;color:#000;border:1px solid #000}
+.it{display:flex;gap:14px;align-items:center;border-bottom:1px solid #ddd;padding:12px 0}.it img{width:64px;height:64px;object-fit:contain;flex:none}.it div{flex:1;min-width:0}.it small{display:block;color:#555}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+#m{margin-top:12px;min-height:20px}
+</style></head><body><div id="app"></div><script>
+const KA='fc_admin_auth',KC='fc_admin_catalog';
+const ld=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch(_){return f}},sk=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(_){}};
+const hx=async s=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('fc:'+s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const $=s=>document.querySelector(s),app=$('#app'),e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let auth=ld(KA,null),cat=ld(KC,[]),pend=null,photo='';
+const say=t=>{const m=$('#m');if(m)m.textContent=t};
+function login(){app.innerHTML=`<h1>FABRIC CLOSET ADMIN</h1><p>${auth?'LOG IN TO MANAGE FABRICS':'FIRST TIME: CREATE YOUR LOGIN'}</p><label>USERNAME<input id="u" autocomplete="username"></label><label>PASSWORD (8+ CHARACTERS)<input id="p" type="password" autocomplete="${auth?'current-password':'new-password'}"></label><p id="m"></p><button class="btn" id="go">${auth?'LOG IN':'CREATE LOGIN'}</button>`;
+$('#go').onclick=async()=>{const u=$('#u').value.trim(),p=$('#p').value;if(!u||p.length<8)return say('ENTER A USERNAME AND AN 8+ CHARACTER PASSWORD');const h=await hx(u+':'+p);if(!auth){auth={u,h};sk(KA,auth);panel()}else if(auth.u===u&&auth.h===h)panel();else say('WRONG USERNAME OR PASSWORD')}}
+function panel(){app.innerHTML=`<div class="top"><h1>FABRIC CLOSET ADMIN</h1><button class="sm o" id="lo">LOG OUT</button></div>
+<h2>ADD A FABRIC</h2>
+<label>CODE (E.G. CT-07)<input id="c"></label><label>NAME<input id="n"></label><label>DESCRIPTION<textarea id="d"></textarea></label>
+<label>MINIMUM ORDER (METERS)<input id="mq" type="number" min="0.5" step="0.5" value="1"></label><label>PRICE PER METER<input id="pr" type="number" min="0" step="0.01"></label>
+<label>MATERIAL<input id="ma"></label><label>WIDTH (E.G. 112 CM OR 44 IN)<input id="w"></label>
+<label>TAB<select id="t"><option value="0">PLAIN</option><option value="1">PRINTED</option></select></label>
+<label>PHOTO<input id="f" type="file" accept="image/*"></label><p id="m"></p><button class="btn" id="add">ADD FABRIC</button>
+<h2>FABRICS (${cat.length})</h2><div id="l"></div>
+<h2>PUBLISH TO THE SHOP</h2><p style="text-transform:none;color:#555">Download the catalog file, then put it next to the shop page (or send it to your developer) so customers see the changes.</p>
+<button class="sm" id="dl">DOWNLOAD CATALOG.JSON</button><button class="sm o" id="sj">SHOW JSON</button><button class="sm o" id="im">IMPORT JSON</button><textarea id="js" style="margin-top:12px" placeholder="JSON"></textarea>`;
+list();$('#lo').onclick=login;
+$('#f').onchange=ev=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,700/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*s;c.height=im.height*s;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(im,0,0,c.width,c.height);photo=c.toDataURL('image/jpeg',.82);say('PHOTO READY')};im.src=r.result};r.readAsDataURL(ev.target.files[0])};
+$('#add').onclick=()=>{const v=i=>$('#'+i).value.trim(),code=v('c'),id=code.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');if(!id||!v('n')||!(+v('pr')>0)||!(+v('mq')>0))return say('CODE, NAME, PRICE AND MINIMUM ORDER ARE REQUIRED');if(!photo)return say('PLEASE ADD A PHOTO');if(cat.some(p=>p.id===id))return say('THAT CODE ALREADY EXISTS');
+cat.push({id,code,name:v('n'),description:v('d'),moq:+v('mq'),price:+v('pr'),material:v('ma'),width:v('w'),cat:+v('t'),stock:100,img:photo});photo='';sk(KC,cat);panel();say('ADDED')};
+$('#dl').onclick=async()=>{const data=JSON.stringify({products:cat});try{const d=await claude.use('downloads');if(!d)throw 0;await d.save({filename:'catalog.json',data})}catch(_){$('#js').value=data;say('COPY THE JSON FROM THE BOX BELOW AND SAVE IT AS CATALOG.JSON')}};
+$('#sj').onclick=()=>$('#js').value=JSON.stringify({products:cat});
+$('#im').onclick=()=>{try{const j=JSON.parse($('#js').value);cat=j.products||j;sk(KC,cat);panel()}catch(_){say('INVALID JSON')}}}
+function list(){$('#l').innerHTML=cat.length?cat.map((p,i)=>`<div class="it"><img src="${p.img}" alt=""><div>${e(p.code)} · ${e(p.name)}<small>MIN ${p.moq} M · ${p.width?e(p.width)+' · ':''}${p.price}/M · ${p.cat?'PRINTED':'PLAIN'}</small></div><button class="sm" data-rm="${i}">REMOVE</button></div>`).join(''):'<p style="padding:12px 0;color:#555">NO FABRICS YET</p>';
+document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{if(pend!==b.dataset.rm){pend=b.dataset.rm;b.textContent='SURE?';return}cat.splice(+pend,1);pend=null;sk(KC,cat);panel()})}
+login();
+</script></body></html>
